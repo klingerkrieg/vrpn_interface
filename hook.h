@@ -1,17 +1,21 @@
 #include <iostream>
 #include <Windows.h>
 #include <string.h>
-#include <map>
-//#include <sys/time.h>
 
-//#define _WIN32_WINNT 0x050
+
 using namespace std;
+
+int scanCode[] = {' ',VK_ESCAPE,'1','2','3','4','5','6','7','8','9','0',
+'-','=',VK_BACK,VK_TAB,'Q','W','E','R','T','Y','U','I','O','P','[',']',
+VK_RETURN,VK_LCONTROL,'A','S','D','F','G','H','J','K','L',
+';','"','~',VK_LSHIFT,'\\','Z','X','C','V','B','N','M',',','.'};
 
 
 struct DeviceKey{
     int button;
 	int toCode;
 	char device[255];
+	bool pressed;
 
 	DeviceKey(){}
 
@@ -19,6 +23,7 @@ struct DeviceKey{
 		strcpy(this->device,device);
         this->button = button;
         this->toCode = toCode;
+		this->pressed = false;
 
     }
 };
@@ -32,6 +37,16 @@ int EVENTS_SUM = 0;
 
 
 int getConst(char * constante){
+	//Caso seja o numero do botao do mouse 1 2 ou 3
+	if (strcmp(constante,"LEFT") == 0) {
+		return 0;
+	} else
+	if (strcmp(constante,"MIDDLE") == 0) {
+		return 1;
+	} else
+	if (strcmp(constante,"RIGHT") == 0) {
+		return 2;
+	} else
 	if (strcmp(constante,"WM_LBUTTONDOWN") == 0){
 		return WM_LBUTTONDOWN;
 	} else 
@@ -64,14 +79,14 @@ void readConfFile(){
 			char * device = pch;
 			
 			pch = strtok (NULL, " \t");
-			int button = atoi(pch);
+			char * from = pch;
 
 			pch = strtok (NULL, " \t");
 			char * toCode = pch;
 
-			printf("%s %d %s\n", device, button, toCode);
+			printf("%s %d %s\n", device, from, toCode);
 			
-			events[EVENTS_SUM] = DeviceKey(device, button , getConst(toCode) );
+			events[EVENTS_SUM] = DeviceKey(device, getConst(from) , getConst(toCode) );
 			EVENTS_SUM++;
 
 			
@@ -81,59 +96,50 @@ void readConfFile(){
 
 }
 
-
-
-/*long int getTimestamp(){
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    return tp.tv_sec * 1000 + tp.tv_usec / 1000;
-}*/
-
-
-
-/*
-
-#define EVENTS_LENGTH 2
-CodeEvt events[EVENTS_LENGTH];
-
-void setEvents(){
-    events[0] = CodeEvt(WM_LBUTTONDOWN,'A');
-    events[1] = CodeEvt(WM_RBUTTONDOWN,'D');
+bool isKeyBoard(const char * name){
+	char kbd[] = "Keyboard";
+	for (int i = 0; i < 8; i++){
+		if (name[i] != kbd[i]){
+			return false;
+		}
+	}
+	return true;
 }
 
-/*
-CodeEvt getEvent(WPARAM wParam){
-    if (wParam == -1){
-        return CodeEvt();
-    }
-
-    for (int i = 0; i < EVENTS_LENGTH; i++){
-        if (wParam == events[i].code){
-            events[i].up = false;
-            return events[i];
-        } else
-        if (wParam == events[i].upCode){
-            events[i].up = true;
-            return events[i];
-        }
-    }
-    
-    return CodeEvt();
-}*/
 
 void VRPN_CALLBACK handle_button(void *userdata, const vrpn_BUTTONCB b) {
     const char *name = (const char *)userdata;
 
+
+
+	//Percorre todos os botoes registrados
 	for (int i = 0; i < EVENTS_SUM; i++){
-		printf("%s == %s -> %d\n",name, events[i].device, strcmp(name,events[i].device));
+		//printf("%s == %s -> %d\n",name, events[i].device, strcmp(name,events[i].device));
+		printf("%d == %d\n", b.button, events[i].button);
 
-		printf("%d == %d\n",b.button, events[i].button);
+		bool kbd = isKeyBoard(name);c
 
+		//Caso o botao pressionado esteja registrado
+		if (strcmp(name,events[i].device) == 0 &&
+				( kbd && scanCode[b.button] == events[i].button ||
+				  kbd == false && b.button == events[i].button) ){
+			//Caso seja keyboard ele ira converter do scancode para ascii
+			//printf("state %d pressed %d", b.state, events[i].pressed);
+			//Caso nao seja usa o proprio codigo
 
-		if (strcmp(name,events[i].device) == 0 && b.button == events[i].button){
-			printf("ACIONA %d" , events[i].toCode);
-			keybd_event(events[i].toCode, 0, 0, 0);
-			keybd_event(events[i].toCode, 0, KEYEVENTF_KEYUP, 0);
+			//Se for evento para pressionar
+			if (events[i].pressed == false && b.state == 1){
+				printf("ACIONA %d" , events[i].toCode);
+				keybd_event(events[i].toCode, 0, 0, 0);
+				events[i].pressed = true;
+			} else //Se estiver soltando o botao
+			if (events[i].pressed == true && b.state == 0){
+				printf("SOLTA %d" , events[i].toCode);
+				keybd_event(events[i].toCode, 0, KEYEVENTF_KEYUP, 0);
+				events[i].pressed = false;
+			}
+
+			
 		}
 	}
 
@@ -169,151 +175,3 @@ void VRPN_CALLBACK handle_analog(void *userdata, const vrpn_ANALOGCB a)
     printf(" (%d chans)\n", a.num_channel);
 }
 
-
-void call_evt(BYTE keyCode){
-	keybd_event(keyCode, 0, 0, 0);
-	keybd_event(keyCode, 0, KEYEVENTF_KEYUP, 0);
-}
-
-/*
-LRESULT CALLBACK keyToKey(int nCode, WPARAM wParam, LPARAM lParam) {
-    BOOL fEatKeystroke = FALSE;
-
-    if (nCode == HC_ACTION) {
-
-        //Se foi um evento do teclado
-        if (wParam == WM_KEYDOWN || wParam == WM_KEYUP){
-            PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
-
-            CodeEvt evt = getEvent(p->vkCode);
-            if (evt.code != -1){
-                fEatKeystroke = TRUE;//cancela a tecla real
-
-                cout << "KEY TO KEY:"<< evt.toCode << "\n";
-                if (wParam == WM_KEYDOWN){
-                    keybd_event(evt.toCode, 0, 0, 0);
-                } else
-                if (wParam == WM_KEYUP){
-                    keybd_event(evt.toCode, 0, KEYEVENTF_KEYUP, 0);
-                }
-            }
-
-        } else {
-
-
-            //Se foi um evento do mouse
-            CodeEvt evt =  CodeEvt();
-            evt.code = -1;
-
-            if(wParam == WM_MOUSEMOVE){
-
-                MOUSEHOOKSTRUCT * pMouseStruct = (MOUSEHOOKSTRUCT *)lParam;
-                //cout << "x:" << pMouseStruct->pt.x << "y" << pMouseStruct->pt.y << "\n";
-
-                int movement = -1;
-
-                //cout << pMouseStruct->pt.y << " < " << screenHeight / 3 << "\n";
-                if (pMouseStruct->pt.y < screenHeight / 3){
-                    if (MOUSE_VERTICAL_RELEASE == -1){
-                        movement = MOUSE_MOVE_UP_PRESS;
-                        MOUSE_VERTICAL_RELEASE = MOUSE_MOVE_UP_RELEASE;
-                    }
-                } else
-                if (pMouseStruct->pt.y > (screenHeight / 3)*2){
-                    if (MOUSE_VERTICAL_RELEASE == -1){
-                        movement = MOUSE_MOVE_DOWN_PRESS;
-                        MOUSE_VERTICAL_RELEASE = MOUSE_MOVE_DOWN_RELEASE;
-                    }
-                } else
-                if (MOUSE_VERTICAL_RELEASE != -1){
-                    movement = MOUSE_VERTICAL_RELEASE;
-                    MOUSE_VERTICAL_RELEASE = -1;
-                }
-
-                if (pMouseStruct->pt.x < screenWidth / 3){
-                    if (MOUSE_HORIZONTAL_RELEASE == -1){
-                        movement = MOUSE_MOVE_LEFT_PRESS;
-                        MOUSE_HORIZONTAL_RELEASE = MOUSE_MOVE_LEFT_RELEASE;
-                    }
-                } else
-                if (pMouseStruct->pt.x > (screenWidth / 3)*2){
-                    if (MOUSE_HORIZONTAL_RELEASE == -1){
-                        movement = MOUSE_MOVE_RIGHT_PRESS;
-                        MOUSE_HORIZONTAL_RELEASE = MOUSE_MOVE_RIGHT_RELEASE;
-                    }
-                } else
-                if (MOUSE_HORIZONTAL_RELEASE != -1 && movement != MOUSE_MOVE_DOWN_RELEASE && movement != MOUSE_MOVE_UP_RELEASE){
-                    movement = MOUSE_HORIZONTAL_RELEASE;
-                    MOUSE_HORIZONTAL_RELEASE = -1;
-                }
-
-
-                //Se foi um evento do mouse
-                evt = getEvent(movement);
-
-            } else {
-                //Se foi um evento do mouse
-                evt = getEvent(wParam);
-            }
-
-            if (evt.code != -1){//Se a tecla estiver configurada
-
-                //fEatKeystroke = TRUE;//cancela a tecla real
-                cout << "MOUSE TO KEY:"<< evt.toCode << "\n";
-                if (evt.up){//Solta a tecla
-                    cout << "keypressup1\n";
-                    keybd_event(evt.toCode, 0, KEYEVENTF_KEYUP, 0);
-                } else {//pressiona a tecla
-                    keybd_event(evt.toCode, 0, 0, 0);
-                    cout << evt.downAndUp << "keypress\n";
-                    if (evt.downAndUp){//Alguns eventos do mouse so sao executados uma vez
-                        cout << "keypressup2\n";
-                        keybd_event(evt.toCode, 0, KEYEVENTF_KEYUP, 0);
-                    }
-                }
-            }
-        }
-
-    }
-
-    return(fEatKeystroke ? 1 : CallNextHookEx(hMouse, nCode, wParam, lParam));
-}
-*/
-/*
-
-void getScreenSize(){
-    RECT desktop;
-    const HWND hDesktop = GetDesktopWindow();
-    GetWindowRect(hDesktop, &desktop);
-    screenHeight = desktop.bottom;
-    screenWidth = desktop.right;
-}
-
-/*
-int main() {
-    // Install the low-level keyboard & mouse hooks
-//    HWND windowHandle = FindWindow(NULL, _T("Impossible Game.exe"));
-    //DWORD threadId = GetWindowThreadProcessId(windowHandle, NULL);
-
-    getScreenSize();
-
-
-
-    setEvents();
-
-    hKybd  = SetWindowsHookEx(WH_KEYBOARD_LL, keyToKey, 0, 0);
-    hMouse = SetWindowsHookEx(WH_MOUSE_LL, keyToKey, 0, 0);
-
-    // Keep this app running until we're told to stop
-    MSG msg;
-    //this while loop keeps the hook
-    while (!GetMessage(&msg, NULL, NULL, NULL)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    UnhookWindowsHookEx(hKybd);
-    UnhookWindowsHookEx(hMouse);
-
-    return(0);
-}*/
