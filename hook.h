@@ -1,7 +1,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <string.h>
-
+#include <vrpn_Button.h>
 
 using namespace std;
 
@@ -9,7 +9,6 @@ int scanCode[] = {' ',VK_ESCAPE,'1','2','3','4','5','6','7','8','9','0',
 '-','=',VK_BACK,VK_TAB,'Q','W','E','R','T','Y','U','I','O','P','[',']',
 VK_RETURN,VK_LCONTROL,'A','S','D','F','G','H','J','K','L',
 ';','"','~',VK_LSHIFT,'\\','Z','X','C','V','B','N','M',',','.'};
-
 
 struct DeviceKey{
     int button;
@@ -38,13 +37,13 @@ int EVENTS_SUM = 0;
 
 int getConst(char * constante){
 	//Caso seja o numero do botao do mouse 1 2 ou 3
-	if (strcmp(constante,"LEFT") == 0) {
+	if (strcmp(constante,"MOUSE_LEFT_BTN") == 0) {
 		return 0;
 	} else
-	if (strcmp(constante,"MIDDLE") == 0) {
+	if (strcmp(constante,"MOUSE_MIDDLE_BTN") == 0) {
 		return 1;
 	} else
-	if (strcmp(constante,"RIGHT") == 0) {
+	if (strcmp(constante,"MOUSE_RIGHT_BTN") == 0) {
 		return 2;
 	} else
 	if (strcmp(constante,"WM_LBUTTONDOWN") == 0){
@@ -111,13 +110,12 @@ void VRPN_CALLBACK handle_button(void *userdata, const vrpn_BUTTONCB b) {
     const char *name = (const char *)userdata;
 
 
-
 	//Percorre todos os botoes registrados
 	for (int i = 0; i < EVENTS_SUM; i++){
 		//printf("%s == %s -> %d\n",name, events[i].device, strcmp(name,events[i].device));
 		printf("%d == %d\n", b.button, events[i].button);
 
-		bool kbd = isKeyBoard(name);c
+		bool kbd = isKeyBoard(name);
 
 		//Caso o botao pressionado esteja registrado
 		if (strcmp(name,events[i].device) == 0 &&
